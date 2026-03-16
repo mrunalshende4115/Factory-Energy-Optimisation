@@ -43,8 +43,8 @@ jobs:
       run: |
         echo "$EC2_SSH_KEY" > key.pem
         chmod 600 key.pem
-        ssh -o StrictHostKeyChecking=no -i key.pem ubuntu@35.175.120.17 "
-          cd /home/ubuntu/dashboard &&
+        ssh -o StrictHostKeyChecking=no -i key.pem ec2-user@35.175.120.17 "
+          cd /home/ec2-user/dashboard &&
           git pull
         "
       env:
