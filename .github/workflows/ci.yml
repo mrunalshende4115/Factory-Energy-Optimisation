@@ -38,3 +38,14 @@ jobs:
           -Dsonar.python.version=3.10
       env:
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+    - name: Deploy to EC2
+      run: |
+        echo "$EC2_SSH_KEY" > key.pem
+        chmod 600 key.pem
+        ssh -o StrictHostKeyChecking=no -i key.pem ubuntu@35.175.120.17 "
+          cd /home/ubuntu/dashboard &&
+          git pull
+        "
+      env:
+        EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
