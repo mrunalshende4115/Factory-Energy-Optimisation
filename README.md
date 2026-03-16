@@ -5,6 +5,7 @@
      /_/   \_\_/\_/  |____/   \____|_|\___/ \__,_|\__,_|  /_/ 
  ----------------------------------------------------------------- 
 
+I have created project which will take data from sensor and then after anaylsing it will show us result in graph format
 
 Hi there! Welcome to AWS Cloud9!
 
