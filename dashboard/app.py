@@ -4,9 +4,9 @@ from dash import dcc, html
 from dash.dependencies import Input, Output
 import plotly.graph_objs as go
 import dash_bootstrap_components as dbc
+import json
 
 API_BASE = "https://p41xpcerk1.execute-api.us-east-1.amazonaws.com/prod"
-
 
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.DARKLY])
 
@@ -40,12 +40,9 @@ app.layout = dbc.Container(
     [
         html.H1("Factory Energy Dashboard", className="text-center my-4"),
 
-        # Latest readings
         dbc.Row(id="latest-cards", className="d-flex flex-wrap justify-content-center"),
-
         html.Hr(),
 
-        # Machine selector
         html.Div(
             [
                 html.Label("Select Machine:"),
@@ -59,31 +56,29 @@ app.layout = dbc.Container(
             className="mb-4"
         ),
 
-        # History graph
         dcc.Graph(id="history-graph"),
 
         html.Hr(),
-
         html.H2("Advanced Analytics", className="text-center my-4"),
 
-        # 2x2 grid of advanced charts
         dbc.Row([
             dbc.Col(dcc.Graph(id="multi-axis-chart"), md=6),
             dbc.Col(dcc.Graph(id="state-pie-chart"), md=6),
         ]),
-
         dbc.Row([
             dbc.Col(dcc.Graph(id="machine-comparison-chart"), md=6),
             dbc.Col(dcc.Graph(id="avg-energy-bar-chart"), md=6),
         ]),
 
-        # Auto-refresh every 5 seconds
         dcc.Interval(id="refresh", interval=5000, n_intervals=0)
     ],
     fluid=True
 )
 
 
+# -----------------------------
+# FIXED: LATEST CARDS CALLBACK
+# -----------------------------
 @app.callback(
     Output("latest-cards", "children"),
     Input("refresh", "n_intervals")
@@ -97,6 +92,9 @@ def update_latest(_):
     return [machine_card(item) for item in r]
 
 
+# -----------------------------
+# FIXED: HISTORY CALLBACK
+# -----------------------------
 @app.callback(
     Output("history-graph", "figure"),
     Input("machine-dropdown", "value"),
@@ -108,11 +106,27 @@ def update_history(machine, _):
     except:
         return go.Figure()
 
-    timestamps = [i["timestamp"] for i in r]
-    energy = [i["energy"] for i in r]
+    # Normalize response
+    if isinstance(r, dict) and "body" in r:
+        try:
+            r = json.loads(r["body"])
+        except:
+            return go.Figure()
+
+    if isinstance(r, str):
+        try:
+            r = json.loads(r)
+        except:
+            return go.Figure()
+
+    if not isinstance(r, list):
+        return go.Figure()
+
+    # Extract data safely
+    timestamps = [i.get("timestamp") for i in r]
+    energy = [i.get("energy") for i in r]
 
     fig = go.Figure()
-
     fig.add_trace(
         go.Scatter(
             x=timestamps,
@@ -136,6 +150,9 @@ def update_history(machine, _):
     return fig
 
 
+# -----------------------------
+# ADVANCED CHARTS (unchanged)
+# -----------------------------
 @app.callback(
     Output("multi-axis-chart", "figure"),
     Output("state-pie-chart", "figure"),
@@ -155,17 +172,10 @@ def update_advanced_charts(_):
     humidity = [i["humidity"] for i in r]
     states = [i["state"] for i in r]
 
-    
     multi = go.Figure()
-
-    multi.add_trace(go.Bar(
-        x=machines, y=energy, name="Energy", marker_color="#00E5FF"
-    ))
-    multi.add_trace(go.Scatter(
-        x=machines, y=temp, name="Temperature", mode="lines+markers",
-        yaxis="y2", line=dict(color="orange")
-    ))
-
+    multi.add_trace(go.Bar(x=machines, y=energy, name="Energy", marker_color="#00E5FF"))
+    multi.add_trace(go.Scatter(x=machines, y=temp, name="Temperature",
+                               mode="lines+markers", yaxis="y2", line=dict(color="orange")))
     multi.update_layout(
         title="Energy vs Temperature",
         yaxis=dict(title="Energy"),
@@ -173,41 +183,19 @@ def update_advanced_charts(_):
         template="plotly_dark"
     )
 
-   
-    pie = go.Figure(
-        data=[go.Pie(
-            labels=machines,
-            values=[1 for _ in machines],
-            marker=dict(colors=["#00E5FF", "orange", "red"])
-        )]
-    )
+    pie = go.Figure(data=[go.Pie(labels=machines, values=[1 for _ in machines],
+                                 marker=dict(colors=["#00E5FF", "orange", "red"]))])
     pie.update_layout(title="Machine State Distribution", template="plotly_dark")
 
     compare = go.Figure()
-    compare.add_trace(go.Bar(
-        x=machines, y=energy, name="Energy", marker_color="#00E5FF"
-    ))
-    compare.add_trace(go.Bar(
-        x=machines, y=temp, name="Temperature", marker_color="orange"
-    ))
-    compare.add_trace(go.Bar(
-        x=machines, y=humidity, name="Humidity", marker_color="purple"
-    ))
-
-    compare.update_layout(
-        title="Machine Comparison",
-        barmode="group",
-        template="plotly_dark"
-    )
+    compare.add_trace(go.Bar(x=machines, y=energy, name="Energy", marker_color="#00E5FF"))
+    compare.add_trace(go.Bar(x=machines, y=temp, name="Temperature", marker_color="orange"))
+    compare.add_trace(go.Bar(x=machines, y=humidity, name="Humidity", marker_color="purple"))
+    compare.update_layout(title="Machine Comparison", barmode="group", template="plotly_dark")
 
     avg_bar = go.Figure()
-    avg_bar.add_trace(go.Bar(
-        x=machines, y=energy, marker_color="#00E5FF"
-    ))
-    avg_bar.update_layout(
-        title="Average Energy per Machine",
-        template="plotly_dark"
-    )
+    avg_bar.add_trace(go.Bar(x=machines, y=energy, marker_color="#00E5FF"))
+    avg_bar.update_layout(title="Average Energy per Machine", template="plotly_dark")
 
     return multi, pie, compare, avg_bar
 
