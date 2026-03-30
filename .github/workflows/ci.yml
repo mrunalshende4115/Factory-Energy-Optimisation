@@ -41,11 +41,14 @@ jobs:
 
     - name: Deploy to EC2
       run: |
-        echo "$EC2_SSH_KEY" > key.pem
+        # Write SSH key with preserved newlines
+        echo "${EC2_SSH_KEY}" > key.pem
         chmod 600 key.pem
-        ssh -o StrictHostKeyChecking=no -i key.pem ec2-user@100.54.101.20 "
-          cd /home/ec2-user/dashboard &&
+
+        # SSH into EC2 and pull latest code
+        ssh -o StrictHostKeyChecking=no -i key.pem ec2-user@100.54.101.20 << 'EOF'
+          cd /home/ec2-user/dashboard
           git pull
-        "
+        EOF
       env:
         EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
